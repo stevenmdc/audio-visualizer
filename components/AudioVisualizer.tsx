@@ -1,7 +1,7 @@
 "use client";
 
 import { motion } from "framer-motion";
-import { Pause, Play, SkipBack, SkipForward, Upload } from "lucide-react";
+import { Eye, EyeOff, Pause, Play, SkipBack, SkipForward, Upload } from "lucide-react";
 import {
   useCallback,
   useEffect,
@@ -53,7 +53,7 @@ export default function AudioVisualizer() {
   const [currentTime, setCurrentTime] = useState(0);
   const [duration, setDuration] = useState(0);
   const [bars, setBars] = useState<number[]>(idleBars);
-  const [showBottomHalf, setShowBottomHalf] = useState(false);
+  const [showBottomHalf, setShowBottomHalf] = useState(true);
 
   const currentTrack = tracks[currentIndex] ?? null;
 
@@ -323,15 +323,16 @@ export default function AudioVisualizer() {
 
           <div className="pointer-events-none absolute inset-x-0 top-1/2 z-10 h-px -translate-y-1/2 bg-white/25" />
 
-          <div className="pointer-events-none absolute inset-y-10 left-1/2 z-30 w-px ml-0.5 -translate-x-1/2 bg-white/95 shadow-[0_0_14px_rgba(255,255,255,0.26)]">
-            <div className="absolute -top-3 left-1/2 h-0 w-0 -translate-x-1/2 border-l-[7px] border-r-[7px] border-t-[10px] border-l-transparent border-r-transparent border-t-white" />
+          <div className="pointer-events-none absolute inset-y-[70px] left-1/2 z-30 w-px -translate-x-1/2 bg-white/80 shadow-[0_0_14px_rgba(255,255,255,0.26)]">
+            <div className="absolute -top-6 left-1/2 h-3 w-3.5 -translate-x-1/2 bg-white/80" />
+            <div className="absolute -top-3 left-1/2 h-0 w-0 -translate-x-1/2 border-l-[7px] border-r-[7px] border-t-[10px] border-l-transparent border-r-transparent border-t-white/80" />
           </div>
 
           <div
             className={
               showBottomHalf
-                ? "pointer-events-none absolute left-1/2 top-20 bottom-20 z-20 flex items-center gap-1 pl-1.5 sm:top-24 sm:bottom-24 sm:gap-1.5"
-                : "pointer-events-none absolute left-1/2 top-20 bottom-1/2 z-20 flex items-end gap-1 pl-1.5 sm:top-24 sm:gap-1.5"
+                ? "pointer-events-none absolute left-1/2 top-20 bottom-20 z-20 flex items-center gap-1 pl-[2px] sm:top-24 sm:bottom-24 sm:gap-1.5"
+                : "pointer-events-none absolute left-1/2 top-20 bottom-1/2 z-20 flex items-end gap-1 pl-[2px] sm:top-24 sm:gap-1.5"
             }
           >
             {bars.map((value, index) => (
@@ -366,19 +367,19 @@ export default function AudioVisualizer() {
             whileTap={{ scale: 0.96 }}
             onClick={() => setShowBottomHalf((previous) => !previous)}
             aria-label={showBottomHalf ? "Masquer la partie basse des barres" : "Afficher la partie basse des barres"}
-            className="absolute right-3 top-1/2 z-40 -translate-y-1/2 rounded-full border border-white/20 bg-white/6 px-3 py-1 text-[10px] font-medium uppercase tracking-[0.18em] text-zinc-300 opacity-0 transition hover:bg-white/12 hover:text-zinc-100 group-hover:opacity-100 focus-visible:opacity-100 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-cyan-300 sm:right-4"
+            className="absolute right-3 top-[calc(50%-20px)] z-40 -translate-y-1/2 rounded-full border border-white/20 bg-white/6 p-2 text-zinc-300 opacity-0 transition hover:bg-white/12 hover:text-zinc-100 group-hover:opacity-100 focus-visible:opacity-100 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-cyan-300 sm:right-4"
           >
-            {showBottomHalf ? "hide" : "show"}
+            {showBottomHalf ? <EyeOff size={14} /> : <Eye size={14} />}
           </motion.button>
 
           {tracks.length === 0 && (
-            <div className="absolute inset-0 z-40 flex items-center justify-center">
+            <div className="absolute inset-x-0 top-1/4 z-50 flex justify-center">
               <motion.button
                 type="button"
                 whileTap={{ scale: 0.96 }}
                 onClick={() => fileInputRef.current?.click()}
                 aria-label="Importer une piste audio"
-                className="inline-flex items-center gap-3 rounded-full border border-cyan-300/70 bg-cyan-300/18 px-6 py-3 text-sm font-medium uppercase tracking-[0.16em] text-cyan-100 shadow-[0_0_34px_rgba(34,211,238,0.35)] transition hover:bg-cyan-300/28 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-cyan-300"
+                className="z-50 inline-flex items-center gap-3 rounded-full border border-cyan-300/70 bg-cyan-300/16 px-6 py-3 text-sm font-medium uppercase tracking-[0.16em] text-cyan-100 shadow-[0_0_34px_rgba(34,211,238,0.35)] backdrop-blur-md transition hover:bg-cyan-300/26 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-cyan-300"
               >
                 <Upload size={18} />
                 Upload Audio
