@@ -2,7 +2,7 @@
 
 Interactive audio visualizer built with **Next.js 16 + React 19**.
 
-![App screenshot](./public/screencapture.png)
+![App screenshot](./public/screencapture-v2.png)
 
 ## Features
 
