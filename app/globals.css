@@ -24,3 +24,41 @@ body {
   color: var(--foreground);
   font-family: Arial, Helvetica, sans-serif;
 }
+
+button {
+  cursor: pointer;
+}
+
+.zoom-slider {
+  appearance: none;
+  background: transparent;
+}
+
+.zoom-slider::-webkit-slider-runnable-track {
+  height: 6px;
+  border-radius: 9999px;
+  background: #a1a1aa;
+}
+
+.zoom-slider::-webkit-slider-thumb {
+  appearance: none;
+  width: 16px;
+  height: 16px;
+  border-radius: 9999px;
+  margin-top: -5px;
+  background: #27272a;
+}
+
+.zoom-slider::-moz-range-track {
+  height: 6px;
+  border-radius: 9999px;
+  background: #a1a1aa;
+}
+
+.zoom-slider::-moz-range-thumb {
+  width: 16px;
+  height: 16px;
+  border: 0;
+  border-radius: 9999px;
+  background: #27272a;
+}
