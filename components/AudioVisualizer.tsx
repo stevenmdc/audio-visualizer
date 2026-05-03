@@ -1,13 +1,14 @@
 "use client";
 
 import { motion } from "framer-motion";
+import ModalSettings from "./ModalSettings";
 import {
-  Cog,
   Eye,
   EyeOff,
   FastForward,
   Pause,
   Play,
+  Settings2,
   Rewind,
   SkipBack,
   SkipForward,
@@ -29,6 +30,25 @@ type Track = {
   url: string;
 };
 
+const PRELOADED_AUDIO_FILES = [
+  "2026-04-17_en_var1_take01.wav",
+  "2026-04-17_en_var1_test01.wav",
+  "2026-04-17_fr_var1_take01.wav",
+  "2026-04-17_fr_var1_test01.wav",
+] as const;
+
+const filenameToTitle = (filename: string) =>
+  filename
+    .replace(/\.[^/.]+$/, "")
+    .replaceAll("_", " ")
+    .trim();
+
+const PRELOADED_TRACKS: Track[] = PRELOADED_AUDIO_FILES.map((filename) => ({
+  id: `preloaded-${filename}`,
+  title: filenameToTitle(filename),
+  url: `/audio/${filename}`,
+}));
+
 const DEFAULT_BAR_COUNT = 14;
 const IDLE_LEVEL = 0.06;
 const TIMELINE_DEFAULT_WINDOW_SECONDS = 42;
@@ -46,8 +66,12 @@ const BAR_WIDTH_DEFAULT = 8;
 const VIDEO_SCALE_MIN = 70;
 const VIDEO_SCALE_MAX = 130;
 const VIDEO_SCALE_DEFAULT = 100;
+const VISUALIZER_WIDTH_MIN = 40;
+const VISUALIZER_WIDTH_MAX = 100;
+const VISUALIZER_WIDTH_DEFAULT = 60;
 
 type VideoFitMode = "cover" | "contain";
+type AccentMode = "cyan" | "orange";
 
 const idleBars = (count: number) => Array.from({ length: count }, () => IDLE_LEVEL);
 
@@ -77,7 +101,7 @@ export default function AudioVisualizer() {
   const bgVideoUrlRef = useRef<string | null>(null);
   const playingRef = useRef(false);
 
-  const [tracks, setTracks] = useState<Track[]>([]);
+  const [tracks, setTracks] = useState<Track[]>(PRELOADED_TRACKS);
   const [currentIndex, setCurrentIndex] = useState(0);
   const [isPlaying, setIsPlaying] = useState(false);
   const [currentTime, setCurrentTime] = useState(0);
@@ -90,11 +114,42 @@ export default function AudioVisualizer() {
   const [isSettingsOpen, setIsSettingsOpen] = useState(false);
   const [videoOpacity, setVideoOpacity] = useState(100);
   const [overlayOpacity, setOverlayOpacity] = useState(0);
-  const [videoFitMode, setVideoFitMode] = useState<VideoFitMode>("cover");
+  const [videoFitMode, setVideoFitMode] = useState<VideoFitMode>("contain");
   const [videoScale, setVideoScale] = useState(VIDEO_SCALE_DEFAULT);
   const [barWidth, setBarWidth] = useState(BAR_WIDTH_DEFAULT);
+  const [visualizerWidth, setVisualizerWidth] = useState(VISUALIZER_WIDTH_DEFAULT);
+  const [accentMode, setAccentMode] = useState<AccentMode>("cyan");
 
   const currentTrack = tracks[currentIndex] ?? null;
+  const hasLoadedTrack = currentTrack !== null;
+  const isAccentActive = isPlaying;
+  const accentOutlineClass = accentMode === "cyan" ? "focus-visible:outline-cyan-300" : "focus-visible:outline-orange-300";
+  const accentFocusBorderClass = accentMode === "cyan" ? "focus:border-cyan-300/70" : "focus:border-orange-300/70";
+  const panelGlowClass = isAccentActive
+    ? accentMode === "cyan"
+      ? "shadow-[0_0_56px_rgba(45,212,191,0.08)]"
+      : "shadow-[0_0_56px_rgba(251,146,60,0.12)]"
+    : "shadow-[0_0_42px_rgba(161,161,170,0.12)]";
+  const barAccentClass = isAccentActive
+    ? accentMode === "cyan"
+      ? "bg-gradient-to-t from-teal-400/90 to-cyan-200/95 shadow-[0_0_12px_rgba(45,212,191,0.4)]"
+      : "bg-gradient-to-t from-orange-500/90 to-amber-200/95 shadow-[0_0_12px_rgba(251,146,60,0.42)]"
+    : "bg-gradient-to-t from-zinc-500/80 to-zinc-300/85 shadow-[0_0_10px_rgba(161,161,170,0.3)]";
+  const uploadAccentClass = isAccentActive
+    ? accentMode === "cyan"
+      ? "border-cyan-300/70 bg-cyan-300/16 text-cyan-100 shadow-[0_0_30px_rgba(34,211,238,0.28)] hover:bg-cyan-300/26"
+      : "border-orange-300/70 bg-orange-300/16 text-orange-100 shadow-[0_0_30px_rgba(251,146,60,0.34)] hover:bg-orange-300/26"
+    : "border-zinc-300/45 bg-zinc-300/10 text-zinc-100 shadow-[0_0_24px_rgba(161,161,170,0.22)] hover:bg-zinc-300/16";
+  const playAccentClass = isAccentActive
+    ? accentMode === "cyan"
+      ? "border-cyan-300/70 bg-cyan-300/20 text-cyan-100 shadow-[0_0_36px_rgba(34,211,238,0.42)] hover:bg-cyan-300/30"
+      : "border-orange-300/70 bg-orange-300/20 text-orange-100 shadow-[0_0_36px_rgba(251,146,60,0.42)] hover:bg-orange-300/30"
+    : "border-zinc-300/45 bg-zinc-300/12 text-zinc-100 shadow-[0_0_28px_rgba(161,161,170,0.26)] hover:bg-zinc-300/18";
+  const timelineAccentClass = isAccentActive
+    ? accentMode === "cyan"
+      ? "text-cyan-100/90"
+      : "text-orange-100/90"
+    : "text-zinc-200/85";
 
   const timelineTicks = useMemo(() => {
     if (duration <= 0) return [];
@@ -253,7 +308,7 @@ export default function AudioVisualizer() {
 
     revokeObjectUrls();
 
-    const nextTracks = Array.from(files).map((file, index) => {
+    const uploadedTracks = Array.from(files).map((file, index) => {
       const cleanedTitle = file.name.replace(/\.[^/.]+$/, "");
       return {
         id: `${file.name}-${file.lastModified}-${index}`,
@@ -262,7 +317,7 @@ export default function AudioVisualizer() {
       };
     });
 
-    objectUrlsRef.current = nextTracks.map((track) => track.url);
+    objectUrlsRef.current = uploadedTracks.map((track) => track.url);
 
     const audio = audioRef.current;
     if (audio) {
@@ -275,8 +330,8 @@ export default function AudioVisualizer() {
     setCurrentTime(0);
     setDuration(0);
     setBars(idleBars(visualizerBarCount));
-    setTracks(nextTracks);
-    setCurrentIndex(0);
+    setTracks([...PRELOADED_TRACKS, ...uploadedTracks]);
+    setCurrentIndex(PRELOADED_TRACKS.length);
 
     event.target.value = "";
   };
@@ -290,7 +345,7 @@ export default function AudioVisualizer() {
     const nextUrl = URL.createObjectURL(file);
     bgVideoUrlRef.current = nextUrl;
     setBgVideoUrl(nextUrl);
-    setVideoFitMode("cover");
+    setVideoFitMode("contain");
     setVideoScale(VIDEO_SCALE_DEFAULT);
 
     event.target.value = "";
@@ -378,7 +433,11 @@ export default function AudioVisualizer() {
 
       <div
         className="relative w-full max-w-5xl"
-        style={{ transform: `scale(${zoomLevel / 100})`, transformOrigin: "center center" }}
+        style={{
+          width: `${visualizerWidth}%`,
+          transform: `scale(${zoomLevel / 100})`,
+          transformOrigin: "center center",
+        }}
       >
         <motion.section
           initial={{ opacity: 0, y: 16 }}
@@ -390,7 +449,7 @@ export default function AudioVisualizer() {
             audio visualiser
           </p>
 
-        <div className="group relative h-[52vh] min-h-[320px] w-full overflow-hidden rounded-3xl border border-white/10 bg-[#0a1a23] p-4 shadow-[0_0_56px_rgba(45,212,191,0.08)]">
+        <div className={`group relative h-[52vh] min-h-[320px] w-full overflow-hidden rounded-3xl border border-white/10 p-4 bg-neutral-700/10 ${panelGlowClass}`}>
           {bgVideoUrl && (
             <video
               key={bgVideoUrl}
@@ -440,7 +499,7 @@ export default function AudioVisualizer() {
                 key={`right-${index}`}
                 animate={{ height: `${Math.max(4, Math.round(value * 86))}%` }}
                 transition={{ duration: 0.08, ease: "easeOut" }}
-                className="rounded-full bg-gradient-to-t from-teal-400/90 to-cyan-200/95 shadow-[0_0_12px_rgba(45,212,191,0.4)]"
+                className={`rounded-full ${barAccentClass}`}
                 style={{ width: `${barWidth}px`, minWidth: `${barWidth}px` }}
               />
             ))}
@@ -452,7 +511,7 @@ export default function AudioVisualizer() {
                 key={`left-${index}`}
                 animate={{ height: `${Math.max(4, Math.round(value * 86))}%` }}
                 transition={{ duration: 0.08, ease: "easeOut" }}
-                className="rounded-full bg-gradient-to-t from-teal-400/90 to-cyan-200/95 shadow-[0_0_12px_rgba(45,212,191,0.4)]"
+                className={`rounded-full ${barAccentClass}`}
                 style={{ width: `${barWidth}px`, minWidth: `${barWidth}px` }}
               />
             ))}
@@ -463,19 +522,19 @@ export default function AudioVisualizer() {
             whileTap={{ scale: 0.96 }}
             onClick={() => setShowTimeline((previous) => !previous)}
             aria-label={showTimeline ? "Masquer la piste déroulante" : "Afficher la piste déroulante"}
-            className="absolute right-3 top-[calc(50%-20px)] z-40 -translate-y-1/2 rounded-full border border-white/20 bg-white/6 p-2 text-zinc-300 opacity-0 transition hover:bg-white/12 hover:text-zinc-100 group-hover:opacity-100 focus-visible:opacity-100 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-cyan-300 sm:right-4"
+            className={`absolute right-3 top-[calc(50%-20px)] z-40 -translate-y-1/2 rounded-full border border-white/20 bg-white/6 p-2 text-zinc-300 opacity-0 transition hover:bg-white/12 hover:text-zinc-100 group-hover:opacity-100 focus-visible:opacity-100 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 ${accentOutlineClass} sm:right-4`}
           >
             {showTimeline ? <EyeOff size={14} /> : <Eye size={14} />}
           </motion.button>
 
-          {tracks.length === 0 && (
+          {!hasLoadedTrack && (
             <div className="absolute inset-x-0 bottom-[16%] z-50 flex justify-center">
               <motion.button
                 type="button"
                 whileTap={{ scale: 0.96 }}
                 onClick={() => fileInputRef.current?.click()}
                 aria-label="Importer des pistes audio"
-                className="inline-flex items-center gap-2 rounded-full border border-cyan-300/70 bg-cyan-300/16 px-5 py-2.5 text-xs font-medium uppercase tracking-[0.16em] text-cyan-100 shadow-[0_0_30px_rgba(34,211,238,0.28)] backdrop-blur-md transition hover:bg-cyan-300/26 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-cyan-300"
+                className={`inline-flex items-center gap-2 rounded-full border px-5 py-2.5 text-xs font-medium uppercase tracking-[0.16em] backdrop-blur-md transition focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 ${accentOutlineClass} ${uploadAccentClass}`}
               >
                 <Upload size={16} />
                 Upload Audio
@@ -483,18 +542,20 @@ export default function AudioVisualizer() {
             </div>
           )}
 
-          <div className="absolute right-4 bottom-4 z-50 flex gap-2">
-            <motion.button
-              type="button"
-              whileTap={{ scale: 0.96 }}
-              onClick={() => videoInputRef.current?.click()}
-              aria-label="Uploader une vidéo de fond"
-              className="inline-flex items-center gap-2 rounded-full border border-white/25 bg-black/35 px-3 py-2 text-[11px] uppercase tracking-[0.12em] text-zinc-100 backdrop-blur-sm transition hover:bg-black/45 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-cyan-300"
-            >
-              <Video size={14} />
-              BG Video
-            </motion.button>
-          </div>
+          {!bgVideoUrl && (
+            <div className="absolute right-4 bottom-4 z-50 flex gap-2">
+              <motion.button
+                type="button"
+                whileTap={{ scale: 0.96 }}
+                onClick={() => videoInputRef.current?.click()}
+                aria-label="Uploader une vidéo de fond"
+                className={`inline-flex items-center gap-2 rounded-full border border-white/25 bg-black/35 px-3 py-2 text-[11px] uppercase tracking-[0.12em] text-zinc-100 backdrop-blur-sm transition hover:bg-black/45 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 ${accentOutlineClass}`}
+              >
+                <Video size={14} />
+                BG Video
+              </motion.button>
+            </div>
+          )}
         </div>
 
         <div className="mt-8 flex items-center justify-center gap-3 sm:gap-4">
@@ -504,7 +565,7 @@ export default function AudioVisualizer() {
             onClick={goToPrevious}
             disabled={tracks.length === 0}
             aria-label="Piste précédente"
-            className="inline-flex size-12 items-center justify-center rounded-full border border-white/20 bg-white/[0.06] text-zinc-100 transition hover:bg-white/[0.12] disabled:cursor-not-allowed disabled:opacity-35 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-cyan-300"
+            className={`inline-flex size-12 items-center justify-center rounded-full border border-white/20 bg-white/[0.06] text-zinc-100 transition hover:bg-white/[0.12] disabled:cursor-not-allowed disabled:opacity-35 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 ${accentOutlineClass}`}
           >
             <SkipBack size={20} />
           </motion.button>
@@ -515,7 +576,7 @@ export default function AudioVisualizer() {
             onClick={() => seekBy(-SEEK_STEP_SECONDS)}
             disabled={tracks.length === 0}
             aria-label="Reculer de 10 secondes"
-            className="inline-flex size-12 items-center justify-center rounded-full border border-white/20 bg-white/[0.06] text-zinc-100 transition hover:bg-white/[0.12] disabled:cursor-not-allowed disabled:opacity-35 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-cyan-300"
+            className={`inline-flex size-12 items-center justify-center rounded-full border border-white/20 bg-white/[0.06] text-zinc-100 transition hover:bg-white/[0.12] disabled:cursor-not-allowed disabled:opacity-35 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 ${accentOutlineClass}`}
           >
             <Rewind size={18} />
           </motion.button>
@@ -526,7 +587,7 @@ export default function AudioVisualizer() {
             onClick={() => void togglePlayPause()}
             disabled={tracks.length === 0}
             aria-label={isPlaying ? "Pause" : "Lecture"}
-            className="inline-flex size-20 items-center justify-center rounded-full border border-cyan-300/70 bg-cyan-300/20 text-cyan-100 shadow-[0_0_36px_rgba(34,211,238,0.42)] transition hover:bg-cyan-300/30 disabled:cursor-not-allowed disabled:opacity-35 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-cyan-300"
+            className={`inline-flex size-20 items-center justify-center rounded-full border transition disabled:cursor-not-allowed disabled:opacity-35 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 ${accentOutlineClass} ${playAccentClass}`}
           >
             {isPlaying ? <Pause size={32} /> : <Play size={32} className="translate-x-[1px]" />}
           </motion.button>
@@ -537,7 +598,7 @@ export default function AudioVisualizer() {
             onClick={() => seekBy(SEEK_STEP_SECONDS)}
             disabled={tracks.length === 0}
             aria-label="Avancer de 10 secondes"
-            className="inline-flex size-12 items-center justify-center rounded-full border border-white/20 bg-white/[0.06] text-zinc-100 transition hover:bg-white/[0.12] disabled:cursor-not-allowed disabled:opacity-35 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-cyan-300"
+            className={`inline-flex size-12 items-center justify-center rounded-full border border-white/20 bg-white/[0.06] text-zinc-100 transition hover:bg-white/[0.12] disabled:cursor-not-allowed disabled:opacity-35 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 ${accentOutlineClass}`}
           >
             <FastForward size={18} />
           </motion.button>
@@ -548,19 +609,52 @@ export default function AudioVisualizer() {
             onClick={goToNext}
             disabled={tracks.length === 0}
             aria-label="Piste suivante"
-            className="inline-flex size-12 items-center justify-center rounded-full border border-white/20 bg-white/[0.06] text-zinc-100 transition hover:bg-white/[0.12] disabled:cursor-not-allowed disabled:opacity-35 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-cyan-300"
+            className={`inline-flex size-12 items-center justify-center rounded-full border border-white/20 bg-white/[0.06] text-zinc-100 transition hover:bg-white/[0.12] disabled:cursor-not-allowed disabled:opacity-35 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 ${accentOutlineClass}`}
           >
             <SkipForward size={20} />
           </motion.button>
         </div>
 
-        <p className="mt-5 text-center font-mono text-sm tracking-[0.2em] text-cyan-100/90">
+        <p className={`mt-5 text-center font-mono text-sm tracking-[0.2em] ${timelineAccentClass}`}>
           {formatTimelineTime(currentTime)} / {formatTimelineTime(duration)}
         </p>
 
         <p className="mt-5 text-center text-xs font-medium uppercase tracking-[0.26em] text-zinc-300/85">
           {currentTrack?.title ?? "Sous-titre audio"}
         </p>
+
+        <div className="mt-4 flex items-center justify-center gap-2">
+          <label className="sr-only" htmlFor="preloaded-audio-select">
+            Choisir un audio
+          </label>
+          <select
+            id="preloaded-audio-select"
+            value={currentTrack?.id ?? ""}
+            onChange={(event) => {
+              const nextIndex = tracks.findIndex((track) => track.id === event.target.value);
+              if (nextIndex >= 0) {
+                setCurrentIndex(nextIndex);
+              }
+            }}
+            className={`w-full max-w-lg rounded-lg border border-white/20 bg-black/35 px-3 py-2 text-xs uppercase tracking-[0.1em] text-zinc-100 outline-none transition ${accentFocusBorderClass}`}
+          >
+            {tracks.map((track) => (
+              <option key={track.id} value={track.id} className="bg-[#0b1320] text-zinc-100">
+                {track.title}
+              </option>
+            ))}
+          </select>
+          <motion.button
+            type="button"
+            whileTap={{ scale: 0.96 }}
+            onClick={() => fileInputRef.current?.click()}
+            aria-label="Ajouter des pistes audio"
+            className={`inline-flex items-center gap-2 rounded-lg border px-3 py-2 text-[11px] font-medium uppercase tracking-[0.12em] transition focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 ${accentOutlineClass} ${uploadAccentClass}`}
+          >
+            <Upload size={14} />
+            Add Audio
+          </motion.button>
+        </div>
 
         <audio
           ref={audioRef}
@@ -621,9 +715,9 @@ export default function AudioVisualizer() {
             whileTap={{ scale: 0.96 }}
             onClick={() => setIsSettingsOpen(true)}
             aria-label="Ouvrir les réglages"
-            className="inline-flex size-10 items-center justify-center rounded-full bg-black/35 text-zinc-100 backdrop-blur-sm transition hover:bg-black/45 focus-visible:outline-none"
+            className="inline-flex size-10 items-center justify-center rounded-full bg-black/35 text-zinc-100 transition hover:bg-black/45 focus-visible:outline-none"
           >
-            <Cog size={15} />
+            <Settings2 size={15} />
           </motion.button>
 
           <input
@@ -639,113 +733,36 @@ export default function AudioVisualizer() {
         </div>
       </aside>
 
-      {isSettingsOpen && (
-        <div className="fixed inset-0 z-[70] flex items-center justify-center bg-black/55 px-4">
-          <div className="w-full max-w-md rounded-2xl border border-white/15 bg-[#0b1320] p-5 shadow-[0_20px_80px_rgba(0,0,0,0.45)]">
-            <div className="mb-4 flex items-center justify-between">
-              <p className="text-sm font-semibold uppercase tracking-[0.14em] text-zinc-100">Settings</p>
-              <button
-                type="button"
-                onClick={() => setIsSettingsOpen(false)}
-                className="rounded-full border border-white/20 px-2 py-1 text-xs text-zinc-200 hover:bg-white/10"
-              >
-                Close
-              </button>
-            </div>
-
-            <label className="mb-2 block text-xs uppercase tracking-[0.12em] text-zinc-300">
-              Video Opacity: {videoOpacity}%
-            </label>
-            <input
-              type="range"
-              min={PERCENT_MIN}
-              max={PERCENT_MAX}
-              step={1}
-              value={videoOpacity}
-              onChange={(event) => setVideoOpacity(Number(event.target.value))}
-              className="zoom-slider mb-5 w-full"
-            />
-
-            <label className="mb-2 block text-xs uppercase tracking-[0.12em] text-zinc-300">
-              Overlay Intensity: {overlayOpacity}%
-            </label>
-            <input
-              type="range"
-              min={PERCENT_MIN}
-              max={PERCENT_MAX}
-              step={1}
-              value={overlayOpacity}
-              onChange={(event) => setOverlayOpacity(Number(event.target.value))}
-              className="zoom-slider w-full"
-            />
-
-            <p className="mb-2 mt-5 text-xs uppercase tracking-[0.12em] text-zinc-300">Video Fit</p>
-            <div className="mb-5 grid grid-cols-2 gap-2">
-              <button
-                type="button"
-                onClick={() => setVideoFitMode("cover")}
-                className={
-                  videoFitMode === "cover"
-                    ? "rounded-md border border-zinc-400 bg-zinc-700 px-3 py-2 text-xs uppercase tracking-[0.1em] text-zinc-100"
-                    : "rounded-md border border-zinc-600 bg-zinc-900 px-3 py-2 text-xs uppercase tracking-[0.1em] text-zinc-300"
-                }
-              >
-                Cover
-              </button>
-              <button
-                type="button"
-                onClick={() => setVideoFitMode("contain")}
-                className={
-                  videoFitMode === "contain"
-                    ? "rounded-md border border-zinc-400 bg-zinc-700 px-3 py-2 text-xs uppercase tracking-[0.1em] text-zinc-100"
-                    : "rounded-md border border-zinc-600 bg-zinc-900 px-3 py-2 text-xs uppercase tracking-[0.1em] text-zinc-300"
-                }
-              >
-                Contain
-              </button>
-            </div>
-
-            <label className="mb-2 block text-xs uppercase tracking-[0.12em] text-zinc-300">
-              Video Scale: {videoScale}%
-            </label>
-            <input
-              type="range"
-              min={VIDEO_SCALE_MIN}
-              max={VIDEO_SCALE_MAX}
-              step={1}
-              value={videoScale}
-              onChange={(event) => setVideoScale(Number(event.target.value))}
-              className="zoom-slider w-full"
-            />
-
-            <label className="mb-2 mt-5 block text-xs uppercase tracking-[0.12em] text-zinc-300">
-              Bars Count: {visualizerBarCount}
-            </label>
-            <input
-              type="range"
-              min={BARS_MIN}
-              max={BARS_MAX}
-              step={1}
-              value={visualizerBarCount}
-              onChange={(event) => updateBarCount(Number(event.target.value))}
-              className="zoom-slider w-full"
-            />
-
-            <label className="mb-2 mt-5 block text-xs uppercase tracking-[0.12em] text-zinc-300">
-              Bars Width: {barWidth}px
-            </label>
-            <input
-              type="range"
-              min={BAR_WIDTH_MIN}
-              max={BAR_WIDTH_MAX}
-              step={1}
-              value={barWidth}
-              onChange={(event) => setBarWidth(Number(event.target.value))}
-              className="zoom-slider w-full"
-            />
-          </div>
-        </div>
-      )}
+      <ModalSettings
+        isOpen={isSettingsOpen}
+        accentMode={accentMode}
+        videoOpacity={videoOpacity}
+        overlayOpacity={overlayOpacity}
+        videoFitMode={videoFitMode}
+        videoScale={videoScale}
+        visualizerBarCount={visualizerBarCount}
+        barWidth={barWidth}
+        visualizerWidth={visualizerWidth}
+        onClose={() => setIsSettingsOpen(false)}
+        onSetVideoOpacity={setVideoOpacity}
+        onSetOverlayOpacity={setOverlayOpacity}
+        onSetVideoFitMode={setVideoFitMode}
+        onSetVideoScale={setVideoScale}
+        onUpdateBarCount={updateBarCount}
+        onSetBarWidth={setBarWidth}
+        onSetVisualizerWidth={setVisualizerWidth}
+        onSetAccentMode={setAccentMode}
+        percentMin={PERCENT_MIN}
+        percentMax={PERCENT_MAX}
+        videoScaleMin={VIDEO_SCALE_MIN}
+        videoScaleMax={VIDEO_SCALE_MAX}
+        barsMin={BARS_MIN}
+        barsMax={BARS_MAX}
+        barWidthMin={BAR_WIDTH_MIN}
+        barWidthMax={BAR_WIDTH_MAX}
+        visualizerWidthMin={VISUALIZER_WIDTH_MIN}
+        visualizerWidthMax={VISUALIZER_WIDTH_MAX}
+      />
     </main>
   );
 }
