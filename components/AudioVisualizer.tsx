@@ -3,6 +3,7 @@
 import { motion } from "framer-motion";
 import ModalSettings from "./ModalSettings";
 import {
+  ChevronDown,
   Eye,
   EyeOff,
   FastForward,
@@ -94,6 +95,7 @@ export default function AudioVisualizer() {
   const audioRef = useRef<HTMLAudioElement | null>(null);
   const fileInputRef = useRef<HTMLInputElement | null>(null);
   const videoInputRef = useRef<HTMLInputElement | null>(null);
+  const trackMenuRef = useRef<HTMLDivElement | null>(null);
   const audioContextRef = useRef<AudioContext | null>(null);
   const analyserRef = useRef<AnalyserNode | null>(null);
   const rafRef = useRef<number | null>(null);
@@ -119,12 +121,12 @@ export default function AudioVisualizer() {
   const [barWidth, setBarWidth] = useState(BAR_WIDTH_DEFAULT);
   const [visualizerWidth, setVisualizerWidth] = useState(VISUALIZER_WIDTH_DEFAULT);
   const [accentMode, setAccentMode] = useState<AccentMode>("cyan");
+  const [isTrackMenuOpen, setIsTrackMenuOpen] = useState(false);
 
   const currentTrack = tracks[currentIndex] ?? null;
   const hasLoadedTrack = currentTrack !== null;
   const isAccentActive = isPlaying;
   const accentOutlineClass = accentMode === "cyan" ? "focus-visible:outline-cyan-300" : "focus-visible:outline-orange-300";
-  const accentFocusBorderClass = accentMode === "cyan" ? "focus:border-cyan-300/70" : "focus:border-orange-300/70";
   const panelGlowClass = isAccentActive
     ? accentMode === "cyan"
       ? "shadow-[0_0_56px_rgba(45,212,191,0.08)]"
@@ -278,6 +280,31 @@ export default function AudioVisualizer() {
       }
     };
   }, [revokeBgVideoUrl, revokeObjectUrls, stopVisualizerLoop]);
+
+  useEffect(() => {
+    if (!isTrackMenuOpen) return;
+
+    const handlePointerDown = (event: PointerEvent) => {
+      const target = event.target as Node;
+      if (trackMenuRef.current && !trackMenuRef.current.contains(target)) {
+        setIsTrackMenuOpen(false);
+      }
+    };
+
+    const handleKeyDown = (event: KeyboardEvent) => {
+      if (event.key === "Escape") {
+        setIsTrackMenuOpen(false);
+      }
+    };
+
+    window.addEventListener("pointerdown", handlePointerDown);
+    window.addEventListener("keydown", handleKeyDown);
+
+    return () => {
+      window.removeEventListener("pointerdown", handlePointerDown);
+      window.removeEventListener("keydown", handleKeyDown);
+    };
+  }, [isTrackMenuOpen]);
 
   useEffect(() => {
     const audio = audioRef.current;
@@ -615,45 +642,64 @@ export default function AudioVisualizer() {
           </motion.button>
         </div>
 
-        <p className={`mt-5 text-center font-mono text-sm tracking-[0.2em] ${timelineAccentClass}`}>
+        {/* <p className={`mt-5 text-center font-mono text-sm tracking-[0.2em] ${timelineAccentClass}`}>
           {formatTimelineTime(currentTime)} / {formatTimelineTime(duration)}
-        </p>
+        </p> */}
 
-        <p className="mt-5 text-center text-xs font-medium uppercase tracking-[0.26em] text-zinc-300/85">
-          {currentTrack?.title ?? "Sous-titre audio"}
-        </p>
-
-        <div className="mt-4 flex items-center justify-center gap-2">
-          <label className="sr-only" htmlFor="preloaded-audio-select">
-            Choisir un audio
-          </label>
-          <select
-            id="preloaded-audio-select"
-            value={currentTrack?.id ?? ""}
-            onChange={(event) => {
-              const nextIndex = tracks.findIndex((track) => track.id === event.target.value);
-              if (nextIndex >= 0) {
-                setCurrentIndex(nextIndex);
-              }
-            }}
-            className={`w-full max-w-lg rounded-lg border border-white/20 bg-black/35 px-3 py-2 text-xs uppercase tracking-[0.1em] text-zinc-100 outline-none transition ${accentFocusBorderClass}`}
-          >
-            {tracks.map((track) => (
-              <option key={track.id} value={track.id} className="bg-[#0b1320] text-zinc-100">
-                {track.title}
-              </option>
-            ))}
-          </select>
-          <motion.button
+        <div className="group relative mt-4 flex justify-center" ref={trackMenuRef}>
+          <button
             type="button"
-            whileTap={{ scale: 0.96 }}
-            onClick={() => fileInputRef.current?.click()}
-            aria-label="Ajouter des pistes audio"
-            className={`inline-flex items-center gap-2 rounded-lg border px-3 py-2 text-[11px] font-medium uppercase tracking-[0.12em] transition focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 ${accentOutlineClass} ${uploadAccentClass}`}
+            onClick={() => setIsTrackMenuOpen((previous) => !previous)}
+            aria-haspopup="listbox"
+            aria-expanded={isTrackMenuOpen}
+            className={`inline-flex w-full max-w-lg items-center justify-center gap-2 rounded-full px-4 py-1.5 text-center translate-x-4 font-medium uppercase tracking-[0.26em] text-zinc-300/85 transition focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 ${accentOutlineClass}`}
           >
-            <Upload size={14} />
-            Add Audio
-          </motion.button>
+            <span className="truncate">{currentTrack?.title ?? "Sous-titre audio"}</span>
+            <ChevronDown
+              size={20}
+              className={`shrink-0 text-zinc-300/70 opacity-0 transition-all duration-150 group-hover:opacity-100 group-focus-within:opacity-100 ${isTrackMenuOpen ? "rotate-180 opacity-100" : ""}`}
+            />
+          </button>
+
+          {isTrackMenuOpen ? (
+            <div className="absolute bottom-full z-30 mb-2 w-full max-w-lg rounded-xl border border-white/15 bg-black/55 p-3 shadow-2xl backdrop-blur-xl">
+              <div className="max-h-56 space-y-1 overflow-y-auto pr-1">
+                {tracks.map((track, index) => {
+                  const isActive = currentTrack?.id === track.id;
+                  return (
+                    <button
+                      key={track.id}
+                      type="button"
+                      onClick={() => {
+                        setCurrentIndex(index);
+                        setIsTrackMenuOpen(false);
+                      }}
+                      className={`w-full truncate rounded-md border px-3 py-2 text-left text-[11px] uppercase tracking-[0.12em] transition focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 ${accentOutlineClass} ${
+                        isActive
+                          ? "border-white/30 bg-white/12 text-zinc-100"
+                          : "border-white/10 bg-white/5 text-zinc-300 hover:bg-white/10"
+                      }`}
+                    >
+                      {track.title}
+                    </button>
+                  );
+                })}
+              </div>
+              <motion.button
+                type="button"
+                whileTap={{ scale: 0.96 }}
+                onClick={() => {
+                  fileInputRef.current?.click();
+                  setIsTrackMenuOpen(false);
+                }}
+                aria-label="Ajouter des pistes audio"
+                className={`mt-2 inline-flex w-full items-center justify-center gap-2 rounded-lg border px-3 py-2 text-[11px] font-medium uppercase tracking-[0.12em] transition focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 ${accentOutlineClass} ${uploadAccentClass}`}
+              >
+                <Upload size={14} />
+                Add Audio
+              </motion.button>
+            </div>
+          ) : null}
         </div>
 
         <audio
